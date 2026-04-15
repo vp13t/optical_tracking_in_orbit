@@ -1,6 +1,6 @@
 import numpy as np
 
-class UKF:
+class HKF:
     def __init__(self, x0, P0, Q, R):
         # State
         self.x = x0
@@ -24,20 +24,10 @@ class UKF:
         self.wm = np.array([self.wm0] + (2*self.n * [self.wmi]))
         self.wc = np.array([self.wc0] + (2*self.n * [self.wci]))
 
-    def prediction(self, dt, f, _):
-        S = np.linalg.cholesky(self.P)
-        sp = [self.x]
-        for i in range(self.n):
-            offset = np.sqrt(self.n + self.l) * S[:,i]
-            sp.append(self.x + offset)
-            sp.append(self.x - offset)
-        spp = [f(x,dt) for x in sp]
-        self.x = np.sum([wm * p for wm, p in zip(self.wm, spp)], axis=0)
-        P = self.Q.copy()
-        for i in range(len(spp)):
-            P += self.wc[i] * (spp[i] - self.x)[:,None]@(spp[i] - self.x)[None,:]
-        self.P = P
-
+    def prediction(self, dt, f, F):
+        Fk = F(self.x, dt)
+        self.x = f(self.x, dt)
+        self.P = Fk @ self.P @ Fk.T + self.Q
         return self.x, self.P
 
     def measurement(self, y, h, R):

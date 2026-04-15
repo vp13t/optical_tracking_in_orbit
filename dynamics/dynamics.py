@@ -10,12 +10,21 @@ def gravity_dyn(t, x):
     dvdt = -mu * x[:3] / r**3
     return np.concatenate((x[3:], dvdt))
 
-def propagate_dyn(x, t, res=100, Q=np.zeros((6,6))):
-    sol = solve_ivp(fun=gravity_dyn, t_span=(0,t), y0=x, dense_output=True, max_step=0.01)
-    t_plot = np.linspace(0, t, res)
-    x_plot = sol.sol(t_plot)
-    noise = np.random.multivariate_normal(np.zeros(6), Q, size=1) * t
-    x_plot += noise.T * np.arange(x_plot.shape[1]) / x_plot.shape[1]
+def propagate_dyn(x0, dt, duration, Q=np.zeros((6,6))):
+    timesteps = int(duration/dt)
+    t_plot = [0]
+    x_plot = [x0]
+
+    curr_x = x0
+    for tk in range(timesteps):
+        sol = solve_ivp(fun=gravity_dyn, t_span=(0,dt), y0=curr_x, dense_output=True, max_step=0.01)
+        t_plot.append((tk+1) * dt)
+        x = sol.y[:,-1].flatten()
+        x_plot.append(x)
+        noise = np.random.multivariate_normal(np.zeros(6), Q, size=1).flatten()
+        curr_x = x + noise
+    x_plot = np.array(x_plot).T
+    t_plot = np.array(t_plot)
     return t_plot, x_plot
 
 def rel_dyn(x_sat1):
@@ -36,17 +45,14 @@ def f(x, dt):
     return f_x.y[:,-1]
 
 def F(x, dt):
-    r = np.linalg.norm(x[:3])
+    r_vec = x[:3]
+    r = np.linalg.norm(r_vec)
     dvdx = np.zeros(3)
     mu = c.G * c.earth_mass 
-    for i in range(3):
-        dvdx[i] = mu * ((1 / r**3) - (3 * x[i]**2 / r**5))
-        if dvdx[i] == 0:
-            dvdx[i] = 1e-9
-    a = mu * ((3 * x.T @ x / r**5) - np.eye(3) / r**3)
+    a = mu * ((3 * np.outer(r_vec, r_vec) / r**5) - np.eye(3) / r**3)
     A = np.zeros((6,6))
     A[:3,3:] = np.eye(3)
     A[3:,:3] = a
-    # F = expm(A * dt)
-    F = np.eye(6) + A * dt
+    F = expm(A * dt)
+    # F = np.eye(6) + A * dt
     return F

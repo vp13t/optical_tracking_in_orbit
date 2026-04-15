@@ -31,9 +31,6 @@ class EIF:
     def measurement(self, y, h, H):
         Hk = H(self.x)
 
-        print(f"Measurement {y}")
-        print(f"Pred_meas: {h(self.x)}")
-        print(f"Linear pred: {Hk @ self.x}")
         # EIF
         innov = (y - h(self.x) + Hk @ self.x).flatten()
         i = self.I @ self.x + Hk.T @ self.Rinv @ innov

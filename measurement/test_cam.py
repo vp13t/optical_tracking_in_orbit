@@ -53,7 +53,7 @@ if __name__ == "__main__":
     im = ax.imshow(snapshots[0], animated=True, cmap='viridis', vmin=0, vmax=255, origin='lower')
     ax.axis('off')
 
-    animate = False
+    animate = True
     if animate:
         def animate_func(i):
             """Updates the image data for frame i."""

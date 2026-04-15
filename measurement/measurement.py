@@ -34,8 +34,8 @@ def gen_camera_image(cam_state, theta, obs_pts):
 
         # x_theta = rot.signed_angle_vector_plane(obs_dir, cam_frame.x_axis)
         # z_theta = rot.signed_angle_vector_plane(obs_dir, cam_frame.z_axis)
-        x_theta = np.atan2(obs_vec[0], obs_vec[1])
-        z_theta = np.atan2(obs_vec[2], obs_vec[1])
+        x_theta = -np.atan2(obs_vec[2], obs_vec[1])
+        z_theta = np.atan2(obs_vec[0], obs_vec[1])
         # dot = np.dot(obs_dir, view_center)
 
         if np.abs(z_theta) > c.view_angle/2 or np.abs(x_theta) > c.view_angle/2:
@@ -71,8 +71,8 @@ def gen_h(cam_state, theta, sat):
         Zc = xc[2]
 
         y = np.zeros(3)
-        y[0] = np.atan2(Xc, Yc) * px_multi + c.view_px[0]/2
-        y[1] = np.atan2(Zc, Yc) * pz_multi + c.view_px[1]/2
+        y[0] = -np.atan2(Zc, Yc) * px_multi + c.view_px[0]/2
+        y[1] = np.atan2(Xc, Yc) * pz_multi + c.view_px[1]/2
         y[2] = np.log(brightness_multi / (Xc**2 + Yc**2 + Zc**2))
         return y
     return h
@@ -92,40 +92,30 @@ def gen_h_rel(cam_state, theta, sat):
         Zc = xc[2]
 
         y = np.zeros(3)
-        y[0] = np.atan2(Xc, Yc) * px_multi + c.view_px[0]/2
-        y[1] = np.atan2(Zc, Yc) * pz_multi + c.view_px[1]/2
+        y[0] = -np.atan2(Zc, Yc) * px_multi + c.view_px[0]/2
+        y[1] = np.atan2(Xc, Yc) * pz_multi + c.view_px[1]/2
         y[2] = np.log(brightness_multi / (Xc**2 + Yc**2 + Zc**2))
         return y
-    return h
-
-def gen_H_rel(cam_state, theta, sat):
-    cam_frame = camera_frame(cam_state, theta)
-    Phi = rot.rotation_matrix(rot.InertialFrame(), cam_frame)
-
-    px_multi = c.view_px[0] / c.view_angle
-    pz_multi = c.view_px[1] / c.view_angle
-    brightness_multi = -2 * sat.reflectivity * sat.area * 255 / (2*np.tan(c.view_angle/c.view_px[0]))**2
-
+    
     def H(x):
-        # xc = Phi @ (x[:3] - cam_state[:3])
         xc = Phi @ x[:3]
         Xc = xc[0]
         Yc = xc[1]
         Zc = xc[2]
 
         Hk = np.zeros((3,6))
-        Hk[0, 0] = px_multi * (Yc*Phi[0,0] - Xc*Phi[1,0]) / (Xc**2 + Yc**2)
-        Hk[0, 1] = px_multi * (Yc*Phi[0,1] - Xc*Phi[1,1]) / (Xc**2 + Yc**2)
-        Hk[0, 2] = px_multi * (Yc*Phi[0,2] - Xc*Phi[1,2]) / (Xc**2 + Yc**2)
-        Hk[1, 0] = pz_multi * (Yc*Phi[2,0] - Zc*Phi[1,0]) / (Zc**2 + Yc**2)
-        Hk[1, 1] = pz_multi * (Yc*Phi[2,1] - Zc*Phi[1,1]) / (Zc**2 + Yc**2)
-        Hk[1, 2] = pz_multi * (Yc*Phi[2,2] - Zc*Phi[1,2]) / (Zc**2 + Yc**2)
+        Hk[0, 0] = px_multi * (-Yc*Phi[2,0] + Xc*Phi[1,0]) / (Xc**2 + Yc**2)
+        Hk[0, 1] = px_multi * (-Yc*Phi[2,1] + Xc*Phi[1,1]) / (Xc**2 + Yc**2)
+        Hk[0, 2] = px_multi * (-Yc*Phi[2,2] + Xc*Phi[1,2]) / (Xc**2 + Yc**2)
+        Hk[1, 0] = pz_multi * (Yc*Phi[0,0] - Zc*Phi[1,0]) / (Zc**2 + Yc**2)
+        Hk[1, 1] = pz_multi * (Yc*Phi[0,1] - Zc*Phi[1,1]) / (Zc**2 + Yc**2)
+        Hk[1, 2] = pz_multi * (Yc*Phi[0,2] - Zc*Phi[1,2]) / (Zc**2 + Yc**2)
         Hk[2, 0] = -2*(Xc*Phi[0,0] + Yc*Phi[0,1] + Zc*Phi[0,2]) / (Xc**2 + Yc**2 + Zc**2)
         Hk[2, 1] = -2*(Xc*Phi[1,0] + Yc*Phi[1,1] + Zc*Phi[1,2]) / (Xc**2 + Yc**2 + Zc**2)
         Hk[2, 2] = -2*(Xc*Phi[2,0] + Yc*Phi[2,1] + Zc*Phi[2,2]) / (Xc**2 + Yc**2 + Zc**2)
-        print(Hk)
         return Hk
-    return H
+
+    return h, H
 
 if __name__ == "__main__":
     r0 = 6371000 + 300000

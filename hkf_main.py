@@ -7,7 +7,7 @@ import measurement.measurement as mt
 import measurement.rotation as rot
 import measurement.objects as mt_obj
 import measurement.neg_info as mt_ni
-import estimators.ukf as ukf
+import estimators.hkf as hkf
 import visualization.animation_3d as video
 import visualization.cw_plot as cw_plot
 import visualization.err_plot as err_plot
@@ -17,16 +17,16 @@ if __name__ == "__main__":
     # x0_est= x0_sat2 - x0_sat1
     dt = 1
     # SS:MM:HH
-    duration = 60 * 5 * 1
+    duration = 60 * 30 * 1
     tplot, xhist_sat1, xhist_sat2, measurements = sim.sim(42, dt, duration)
     x0_sat1 = xhist_sat1[:,0]
     x0_est = sim.init_est(xhist_sat1)
 
-    Q = 10.0 * (np.diag([1.0, 1.0, 1.0, 0.01, 0.01, 0.01]) ** 2)
-    R = 10.0 * (np.diag([50.0, 50.0, 5.0]) ** 2)
+    Q = 100.0 * (np.diag([1.0, 1.0, 1.0, 0.01, 0.01, 0.01]) ** 2)
+    R = 1.0 * (np.diag([50.0, 50.0, 1.0]) ** 2)
     R_ni = 1.0 * (np.diag([2.0]) ** 2)
-    P0 = 1.0 * (np.diag([2500.0, 1000.0, 2500.0, 1000.0, 1000.0, 1000.0]) ** 2)
-    estimator = ukf.UKF(x0_est, P0, Q, R)
+    P0 = 1.0 * (np.diag([5000.0, 2000.0, 5000.0, 1000.0, 1000.0, 1000.0]) ** 2)
+    estimator = hkf.HKF(x0_est, P0, Q, R)
 
     estimated_target_obj = mt_obj.Sat(x0_est[:3], area=10, reflectivity=0.9)
 
@@ -39,8 +39,8 @@ if __name__ == "__main__":
 
         meas, theta = measurements[i]
 
-        f, _ = dn.rel_dyn(curr_state)
-        xhat, Pk = estimator.prediction(dt, f)
+        f, F = dn.rel_dyn(curr_state)
+        xhat, Pk = estimator.prediction(dt, f, F)
         if meas is not None:
             # estimated_target_obj.update_pos(xhat[:3])
             for y in meas:
