@@ -53,7 +53,7 @@ def meas_from_camera_image(image):
     if bright_coords.shape[0] == 0:
         return None
     brightnesses = image[bright_coords[:,0], bright_coords[:,1]]
-    observations = [np.array([bright_coords[i][0], bright_coords[i][1], np.log(brightnesses[i])]) for i in range(bright_coords.shape[0])]
+    observations = [np.array([bright_coords[i][0], bright_coords[i][1], brightnesses[i]]) for i in range(bright_coords.shape[0])]
     return observations
 
 def gen_h(cam_state, theta, sat):
@@ -62,7 +62,6 @@ def gen_h(cam_state, theta, sat):
 
     px_multi = c.view_px[0] / c.view_angle
     pz_multi = c.view_px[1] / c.view_angle
-    brightness_multi = sat.reflectivity * sat.area * 255 / (2*np.tan(c.view_angle/c.view_px[0]))**2
 
     def h(x):
         xc = Phi @ (x[:3] - cam_state[:3])
@@ -70,10 +69,12 @@ def gen_h(cam_state, theta, sat):
         Yc = xc[1]
         Zc = xc[2]
 
+        brightness = 255 * sat.reflectivity * min(sat.area / ((Xc**2 + Yc**2 + Zc**2) * np.tan(c.view_angle/c.view_px[0])**2), 1)
+
         y = np.zeros(3)
         y[0] = -np.atan2(Zc, Yc) * px_multi + c.view_px[0]/2
         y[1] = np.atan2(Xc, Yc) * pz_multi + c.view_px[1]/2
-        y[2] = np.log(brightness_multi / (Xc**2 + Yc**2 + Zc**2))
+        y[2] = brightness
         return y
     return h
 
@@ -83,7 +84,6 @@ def gen_h_rel(cam_state, theta, sat):
 
     px_multi = c.view_px[0] / c.view_angle
     pz_multi = c.view_px[1] / c.view_angle
-    brightness_multi = sat.reflectivity * sat.area * 255 / (2*np.tan(c.view_angle/c.view_px[0]))**2
 
     def h(x):
         xc = Phi @ x[:3]
@@ -91,10 +91,12 @@ def gen_h_rel(cam_state, theta, sat):
         Yc = xc[1]
         Zc = xc[2]
 
+        brightness = 255 * sat.reflectivity * min(sat.area / ((Xc**2 + Yc**2 + Zc**2) * np.tan(c.view_angle/c.view_px[0])**2), 1)
+
         y = np.zeros(3)
         y[0] = -np.atan2(Zc, Yc) * px_multi + c.view_px[0]/2
         y[1] = np.atan2(Xc, Yc) * pz_multi + c.view_px[1]/2
-        y[2] = np.log(brightness_multi / (Xc**2 + Yc**2 + Zc**2))
+        y[2] = brightness
         return y
     
     def H(x):
@@ -103,6 +105,8 @@ def gen_h_rel(cam_state, theta, sat):
         Yc = xc[1]
         Zc = xc[2]
 
+        brightness_multi = 255 * sat.reflectivity * sat.area / np.tan(c.view_angle/c.view_px[0])**2
+
         Hk = np.zeros((3,6))
         Hk[0, 0] = px_multi * (-Yc*Phi[2,0] + Xc*Phi[1,0]) / (Xc**2 + Yc**2)
         Hk[0, 1] = px_multi * (-Yc*Phi[2,1] + Xc*Phi[1,1]) / (Xc**2 + Yc**2)
@@ -110,9 +114,9 @@ def gen_h_rel(cam_state, theta, sat):
         Hk[1, 0] = pz_multi * (Yc*Phi[0,0] - Zc*Phi[1,0]) / (Zc**2 + Yc**2)
         Hk[1, 1] = pz_multi * (Yc*Phi[0,1] - Zc*Phi[1,1]) / (Zc**2 + Yc**2)
         Hk[1, 2] = pz_multi * (Yc*Phi[0,2] - Zc*Phi[1,2]) / (Zc**2 + Yc**2)
-        Hk[2, 0] = -2*(Xc*Phi[0,0] + Yc*Phi[0,1] + Zc*Phi[0,2]) / (Xc**2 + Yc**2 + Zc**2)
-        Hk[2, 1] = -2*(Xc*Phi[1,0] + Yc*Phi[1,1] + Zc*Phi[1,2]) / (Xc**2 + Yc**2 + Zc**2)
-        Hk[2, 2] = -2*(Xc*Phi[2,0] + Yc*Phi[2,1] + Zc*Phi[2,2]) / (Xc**2 + Yc**2 + Zc**2)
+        Hk[2, 0] = -2*brightness_multi*(Xc*Phi[0,0] + Yc*Phi[0,1] + Zc*Phi[0,2]) / (Xc**2 + Yc**2 + Zc**2)
+        Hk[2, 1] = -2*brightness_multi*(Xc*Phi[1,0] + Yc*Phi[1,1] + Zc*Phi[1,2]) / (Xc**2 + Yc**2 + Zc**2)
+        Hk[2, 2] = -2*brightness_multi*(Xc*Phi[2,0] + Yc*Phi[2,1] + Zc*Phi[2,2]) / (Xc**2 + Yc**2 + Zc**2)
         return Hk
 
     return h, H

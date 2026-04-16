@@ -1,6 +1,8 @@
 import numpy as np
+import matplotlib.style as pltstyle
 import matplotlib.pyplot as plt
 from concurrent.futures import ProcessPoolExecutor
+from tqdm.contrib.concurrent import process_map
 import scipy
 
 import dynamics.dynamics as dn
@@ -23,10 +25,10 @@ def run(args):
 
     m = "hkf"
     if m == "hkf":
-        Q = 100.0 * (np.diag([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]) ** 2)
-        R = 1.0 * (np.diag([50.0, 50.0, 1.0]) ** 2)
-        R_ni = 2.0 * (np.diag([2.0]) ** 2)
-        P0 = 1.0 * (np.diag([5000.0, 2000.0, 5000.0, 1000.0, 1000.0, 1000.0]) ** 2)
+        Q = 50.0 * (np.diag([1.0, 1.0, 1.0, 0.01, 0.01, 0.01]) ** 2)
+        R = 5.0 * (np.diag([100.0, 100.0, 10.0]) ** 2)
+        R_ni = 10.0 * (np.diag([2.0]) ** 2)
+        P0 = 1.0 * (np.diag([5000.0, 5000.0, 5000.0, 100.0, 100.0, 100.0]) ** 2)
         estimator = hkf.HKF(x0_est, P0, Q, R)
     elif m == "ukf":
         Q = 10.0 * (np.diag([1.0, 1.0, 1.0, 0.01, 0.01, 0.01]) ** 2)
@@ -66,11 +68,12 @@ def run(args):
 if __name__ == "__main__":
     dt = 1
     # SS:MM:HH
-    duration = 60 * 10 * 1
+    duration = 60 * 30 * 1
 
     results = None
-    N = 64
+    N = 32
     args = [(seed, dt, duration) for seed in range(N)]
+    results = process_map(run, args, max_workers=4)
     with ProcessPoolExecutor(max_workers=8) as executor:
         results = list(executor.map(run, args))
     results = np.array(results)
@@ -79,6 +82,7 @@ if __name__ == "__main__":
     lb1 = scipy.stats.chi2.ppf(alpha/2,6)
     ub1 = scipy.stats.chi2.ppf(1-alpha/2,6)
 
+    pltstyle.use(['fast'])
     fig, axs = plt.subplots(1, 2, sharey=True)
 
     ax = axs[0]
@@ -88,7 +92,7 @@ if __name__ == "__main__":
     ax.axhline(y=ub1, color='b', linestyle='--')
     tspan = np.arange(results.shape[1])
     for row in range(results.shape[0]):
-        ax.scatter(tspan, results[row,:], s=5)
+        ax.scatter(tspan, results[row,:], s=1)
     ax.set_ylabel("NEES")
     ax.set_xlabel("Time")
     ax.set_title(f"N={N} NEES Simulations")

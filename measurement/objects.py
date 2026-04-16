@@ -17,7 +17,7 @@ class Sat(ObsPt):
         self.pos = pos
     
     def brightness(self, dist, FOV_angle):
-        area_covered = min(self.area / (2 * dist * np.tan(FOV_angle))**2, 1)
+        area_covered = min(self.area / (dist * np.tan(FOV_angle))**2, 1) 
         noise = np.random.normal(0, 1)
         return np.round(np.clip(area_covered * self.reflectivity * 255 + noise, 0, 255))
 

@@ -18,14 +18,18 @@ if __name__ == "__main__":
     dt = 1
     # SS:MM:HH
     duration = 60 * 30 * 1
-    tplot, xhist_sat1, xhist_sat2, measurements = sim.sim(42, dt, duration)
+    tplot, xhist_sat1, xhist_sat2, measurements = sim.sim(3, dt, duration)
     x0_sat1 = xhist_sat1[:,0]
     x0_est = sim.init_est(xhist_sat1)
 
-    Q = 100.0 * (np.diag([1.0, 1.0, 1.0, 0.01, 0.01, 0.01]) ** 2)
-    R = 1.0 * (np.diag([50.0, 50.0, 1.0]) ** 2)
-    R_ni = 1.0 * (np.diag([2.0]) ** 2)
-    P0 = 1.0 * (np.diag([5000.0, 2000.0, 5000.0, 1000.0, 1000.0, 1000.0]) ** 2)
+    # Q = 100.0 * (np.diag([1.0, 1.0, 1.0, 0.01, 0.01, 0.01]) ** 2)
+    # R = 1.0 * (np.diag([50.0, 50.0, 1.0]) ** 2)
+    # R_ni = 1.0 * (np.diag([2.0]) ** 2)
+    # P0 = 1.0 * (np.diag([10000.0, 2000.0, 10000.0, 1000.0, 1000.0, 1000.0]) ** 2)
+    Q = 50.0 * (np.diag([1.0, 1.0, 1.0, 0.01, 0.01, 0.01]) ** 2)
+    R = 5.0 * (np.diag([100.0, 100.0, 10.0]) ** 2)
+    R_ni = 10.0 * (np.diag([2.0]) ** 2)
+    P0 = 1.0 * (np.diag([5000.0, 5000.0, 5000.0, 100.0, 100.0, 100.0]) ** 2)
     estimator = hkf.HKF(x0_est, P0, Q, R)
 
     estimated_target_obj = mt_obj.Sat(x0_est[:3], area=10, reflectivity=0.9)

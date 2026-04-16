@@ -12,8 +12,8 @@ def sim(seed, dt, duration):
     v_circ = np.sqrt(dn_c.G * dn_c.earth_mass / r0)
 
     sat2_z0 = r0 + rng.normal(500, 1000/2)
-    sat2_y0 = rng.normal(0, 5000/2)
-    sat2_x0 = rng.normal(5000, 5000/2)
+    sat2_y0 = rng.normal(5000, 10000/2)
+    sat2_x0 = rng.normal(10000, 10000/2)
     sat2_r0_approx = np.array([sat2_x0, sat2_y0, sat2_z0])
     sat2_r0_n = sat2_r0_approx / np.linalg.norm(sat2_r0_approx)
     sat2_r0 = sat2_z0 * sat2_r0_n
@@ -28,14 +28,20 @@ def sim(seed, dt, duration):
 
     target_obj = mt_obj.Sat(x0_sat2[:3], area=10, reflectivity=0.9)
 
+    rot_per_s = np.deg2rad(15)
+
     measurements = []
     for i in range(xhist_sat1.shape[1]-1):
-        theta = (np.deg2rad(15) * i) % np.deg2rad(360)
+        expected_theta = (rot_per_s * i) % np.deg2rad(360)
+        # 2sigma = 10 ms. 1sigma = 5 ms = 1/200 s
+        true_theta = expected_theta + np.random.normal(0,rot_per_s/200)
+
 
         target_obj.update_pos(xhist_sat2[:3,i+1])
-        im = mt.gen_camera_image(xhist_sat1[:,i+1], theta, [target_obj])
+        im = mt.gen_camera_image(xhist_sat1[:,i+1], true_theta, [target_obj])
         meas = mt.meas_from_camera_image(im)
-        measurements.append((meas, theta))
+
+        measurements.append((meas, expected_theta))
 
     return tplot, xhist_sat1, xhist_sat2, measurements
 
