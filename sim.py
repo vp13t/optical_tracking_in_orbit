@@ -4,8 +4,9 @@ import dynamics.dynamics as dn
 import dynamics.constants as dn_c
 import measurement.measurement as mt
 import measurement.objects as mt_obj
+import measurement.stars as stars
 
-def sim(seed, dt, duration):
+def sim(seed, dt, duration, use_stars=False):
     rng = np.random.default_rng(seed=seed)
 
     r0 = dn_c.earth_rad + 300000
@@ -18,27 +19,30 @@ def sim(seed, dt, duration):
     sat2_r0_n = sat2_r0_approx / np.linalg.norm(sat2_r0_approx)
     sat2_r0 = sat2_z0 * sat2_r0_n
     sat2_v_circ = np.sqrt(dn_c.G * dn_c.earth_mass / sat2_z0)
-    sat2_v0 = v_circ * np.cross(sat2_r0_n, -np.array([0,1,0]))
+    sat2_v0 = v_circ * np.cross(np.array([0,1,0]), sat2_r0_n)
 
     x0_sat1 = np.array([0, 0, r0, v_circ, 0, 0])
     x0_sat2 = np.concatenate((sat2_r0, sat2_v0))
 
-    tplot, xhist_sat1 = dn.propagate_dyn(x0_sat1, dt, duration)
-    _, xhist_sat2 = dn.propagate_dyn(x0_sat2, dt, duration, Q=dn_c.true_Q)
+    tplot, xhist_sat1 = dn.propagate_dyn(x0_sat1, dt, duration, rng)
+    _, xhist_sat2 = dn.propagate_dyn(x0_sat2, dt, duration, rng, Q=dn_c.true_Q)
 
     target_obj = mt_obj.Sat(x0_sat2[:3], area=10, reflectivity=0.9)
+    bright_objs = [target_obj]
+    if use_stars:
+        bright_objs.extend(stars.STARS)
 
     rot_per_s = np.deg2rad(15)
 
     measurements = []
     for i in range(xhist_sat1.shape[1]-1):
         expected_theta = (rot_per_s * i) % np.deg2rad(360)
-        # 2sigma = 10 ms. 1sigma = 5 ms = 1/200 s
-        true_theta = expected_theta + np.random.normal(0,rot_per_s/200)
+        # sigma = 10 ms = 1/100 s
+        true_theta = expected_theta + rng.normal(0,rot_per_s/100)
 
 
         target_obj.update_pos(xhist_sat2[:3,i+1])
-        im = mt.gen_camera_image(xhist_sat1[:,i+1], true_theta, [target_obj])
+        im = mt.gen_camera_image(xhist_sat1[:,i+1], true_theta, bright_objs, rng)
         meas = mt.meas_from_camera_image(im)
 
         measurements.append((meas, expected_theta))

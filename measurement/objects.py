@@ -16,9 +16,9 @@ class Sat(ObsPt):
     def update_pos(self, pos):
         self.pos = pos
     
-    def brightness(self, dist, FOV_angle):
+    def brightness(self, dist, FOV_angle, rng):
         area_covered = min(self.area / (dist * np.tan(FOV_angle))**2, 1) 
-        noise = np.random.normal(0, 1)
+        noise = rng.normal(0, 1)
         return np.round(np.clip(area_covered * self.reflectivity * 255 + noise, 0, 255))
 
 class Star(ObsPt):
@@ -27,7 +27,8 @@ class Star(ObsPt):
         alpha_centauri_dist = 4.15e16
         pos = direction * alpha_centauri_dist
         super().__init__(pos)
-        self.pixel_brightness = 83 * 2.51**(-magnitude-4)
+        self.pixel_brightness = int(round(83 * 2.51**(-magnitude-4)))
 
-    def brightness(self, dist, FOV_angle):
-        return self.pixel_brightness
+    def brightness(self, dist, FOV_angle, rng):
+        noise = rng.normal(0, 1)
+        return np.round(np.clip(self.pixel_brightness + noise, 0, 255))

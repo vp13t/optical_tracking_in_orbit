@@ -6,6 +6,7 @@ import dynamics.constants as dn_c
 import measurement.measurement as mt
 import measurement.objects as mt_obj
 import estimators.eif as eif
+import estimators.tune as tune
 import visualization.animation_3d as video
 import visualization.cw_plot as cw_plot
 import visualization.err_plot as err_plot
@@ -22,17 +23,8 @@ if __name__ == "__main__":
     x0_est = sim.init_est(xhist_sat1)
     # x0_est = x0_sat2 - x0_sat1
 
-    # Q = np.diag([1, 1, 1, 1, 1, 1]) * 1000000
-    Q = np.diag([10, 10, 10, 0.01, 0.01, 0.01])
-    R = np.diag([10, 10, 1]) * 10
-    R_ni = 1.0 * (np.diag([2.0]) ** 2)
-    P0 = np.diag([5000, 1000, 5000, 10, 10, 10])**2
-    # Q = 100.0 * (np.diag([1.0, 1.0, 1.0, 0.01, 0.01, 0.01]) ** 2)
-    # R = 1.0 * (np.diag([50.0, 50.0, 1.0]) ** 2)
-    # R_ni = 1.0 * (np.diag([2.0]) ** 2)
-    # P0 = 1.0 * (np.diag([5000.0, 2000.0, 5000.0, 1000.0, 1000.0, 1000.0]) ** 2)
-    I0 = np.linalg.inv(P0)
-    estimator = eif.EIF(x0_est, I0, Q, R)
+    I0 = np.linalg.inv(tune.P0)
+    estimator = eif.EIF(x0_est, I0, tune.Q, tune.R)
 
     target_obj = mt_obj.Sat(x0_sat2[:3], area=10, reflectivity=0.9)
     estimated_target_obj = mt_obj.Sat(x0_est[:3], area=10, reflectivity=0.9)

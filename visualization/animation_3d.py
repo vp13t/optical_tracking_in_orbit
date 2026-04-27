@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.animation as animation
 
 from dynamics import constants as dn_c
+from measurement import stars as stars
 
 def plot_gaussian(mu, P, ax):
     evals, evecs = np.linalg.eigh(P)
@@ -26,17 +27,24 @@ def plot_ellipsoid(center, radii, rotation_matrix, ax, res=50, **plot_args):
 
     return ax.plot_wireframe(x_new, y_new, z_new, **plot_args)
 
-def plot(tracker_hist, target_hist, est_hist, im_coords, r0, debug=False):
+def plot(tracker_hist, target_hist, est_hist, r0, debug=False, plot_stars=False):
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(projection="3d")
     ax.set_position((0, 0, 1, 1))
     if debug:
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
-        ax.set_zlabel("z")
-        ax.set(xlim3d=(-r0, r0), xlabel='X')
-        ax.set(ylim3d=(-r0, r0), ylabel='Y')
-        ax.set(zlim3d=(-r0, r0), zlabel='Z')
+        ax.set_box_aspect([1, 1, 1])
+        ax.set_xlabel("X", labelpad=20)
+        ax.set_ylabel("Y", labelpad=20)
+        ax.set_zlabel("Z", labelpad=20)
+        ax.set_xticks([-dn_c.earth_rad,0,dn_c.earth_rad], ["-6.37e6", "0", "6.37e6"])
+        ax.set_yticks([-dn_c.earth_rad,0,dn_c.earth_rad], ["-6.37e6", "0", "6.37e6"])
+        ax.set_zticks([-dn_c.earth_rad,0,dn_c.earth_rad], ["-6.37e6", "0", "6.37e6"])
+        ax.tick_params(axis='x', rotation=45)
+        ax.tick_params(axis='y', rotation=45)
+        ax.tick_params(axis='z', rotation=45)
+        ax.set(xlim3d=(-r0, r0))
+        ax.set(ylim3d=(-r0, r0))
+        ax.set(zlim3d=(-r0, r0))
         ax.view_init(elev=0, azim=90)
         plot_ellipsoid(np.zeros(3), np.ones(3) * dn_c.earth_rad, np.eye(3), ax, 50)
     else:
@@ -44,6 +52,12 @@ def plot(tracker_hist, target_hist, est_hist, im_coords, r0, debug=False):
         ax.axis('off')
         ax.set_facecolor('black')
         ax.scatter([0],[0],[0])
+
+        if stars:
+            star_xs = [star.pos[0] for star in stars.STARS]
+            star_ys = [star.pos[1] for star in stars.STARS]
+            star_zs = [star.pos[2] for star in stars.STARS]
+            ax.scatter(star_xs, star_ys, star_zs, s=1, c='white')
 
     sat_plots = [None, None, None]
     lines = [ax.plot([], [], [])[0] for _ in range(3)]
@@ -73,13 +87,10 @@ def plot(tracker_hist, target_hist, est_hist, im_coords, r0, debug=False):
             ax.set(ylim3d=(target_xk[1]-10000, target_xk[1]+10000), ylabel='Y')
             ax.set(zlim3d=(target_xk[2]-10000, target_xk[2]+10000), zlabel='Z')
 
-        dist = np.linalg.norm(tracker_hist[:3, num] - target_hist[:3, num])
-        print(f"Time: {num}, View_Coord: {im_coords[num]}, Dist: {dist}")
-
         return lines
 
     ani = animation.FuncAnimation(
-        fig, update_plot, target_hist.shape[1], fargs=(tracker_hist, target_hist, est_hist, lines, sat_plots, ax), interval=10
+        fig, update_plot, target_hist.shape[1], fargs=(tracker_hist, target_hist, est_hist, lines, sat_plots, ax), interval=10, repeat=False
     )
 
     plt.show()

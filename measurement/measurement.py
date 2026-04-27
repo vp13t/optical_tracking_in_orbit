@@ -16,7 +16,7 @@ def camera_frame(cam_state, theta):
     cam_frame = rot.Frame(observer_frame.x_axis, cam_Y, cam_Z, cam_pos)
     return cam_frame
 
-def gen_camera_image(cam_state, theta, obs_pts):
+def gen_camera_image(cam_state, theta, obs_pts, rng):
     """
     Theta is camera rotation counterclockwise about the radial axis.
     """
@@ -45,7 +45,7 @@ def gen_camera_image(cam_state, theta, obs_pts):
         xidx = int(np.floor(x_theta * c.view_px[0] / c.view_angle) + c.view_px[0]/2)
         zidx = int(np.floor(z_theta * c.view_px[1] / c.view_angle) + c.view_px[1]/2)
 
-        view[xidx, zidx] = int(obs_pt.brightness(obs_dist, c.view_angle/c.view_px[0]))
+        view[xidx, zidx] = int(obs_pt.brightness(obs_dist, c.view_angle/c.view_px[0], rng))
     return view
 
 def meas_from_camera_image(image):

@@ -1,6 +1,7 @@
 import numpy as np
 
 class UKF:
+    """Unscented Kalman Filter"""
     def __init__(self, x0, P0, Q, R):
         # State
         self.x = x0

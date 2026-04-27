@@ -1,6 +1,7 @@
 import numpy as np
 
 class EIF:
+    """Extended Information Filter"""
     def __init__(self, x0, I0, Q, R):
         # State
         self.x = x0

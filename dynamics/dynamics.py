@@ -10,7 +10,7 @@ def gravity_dyn(t, x):
     dvdt = -mu * x[:3] / r**3
     return np.concatenate((x[3:], dvdt))
 
-def propagate_dyn(x0, dt, duration, Q=np.zeros((6,6))):
+def propagate_dyn(x0, dt, duration, rng, Q=np.zeros((6,6))):
     timesteps = int(duration/dt)
     t_plot = [0]
     x_plot = [x0]
@@ -21,7 +21,7 @@ def propagate_dyn(x0, dt, duration, Q=np.zeros((6,6))):
         t_plot.append((tk+1) * dt)
         x = sol.y[:,-1].flatten()
         x_plot.append(x)
-        noise = np.random.multivariate_normal(np.zeros(6), Q, size=1).flatten()
+        noise = rng.multivariate_normal(np.zeros(6), Q, size=1).flatten()
         curr_x = x + noise
     x_plot = np.array(x_plot).T
     t_plot = np.array(t_plot)

@@ -11,34 +11,33 @@ import measurement.measurement as mt
 import measurement.rotation as rot
 import measurement.objects as mt_obj
 import measurement.neg_info as mt_ni
-import estimators.ukf as ukf
 import estimators.hkf as hkf
-import estimators.pdaf as pdaf
+import estimators.gmf as gmf
 import estimators.tune as tune
 import sim
 
 def run(args):
     seed, dt, duration = args
-    tplot, xhist_sat1, xhist_sat2, measurements = sim.sim(seed, dt, duration, use_stars=True)
+    tplot, xhist_sat1, xhist_sat2, measurements = sim.sim(seed, dt, duration)
     x0_est = sim.init_est(xhist_sat1)
 
-    m = "pdaf"
-    if m == "hkf":
-        estimator = hkf.HKF(x0_est, tune.P0, tune.Q, tune.R)
-    elif m == "ukf":
-        estimator = ukf.UKF(x0_est, tune.P0, tune.Q, tune.R)
-    elif m == "pdaf":
-        PG = 0.995
-        PD = 0.9
-        Lambda = 10.0
-        estimator = pdaf.PDAF(x0_est, tune.P0, tune.Q, tune.R, PG, PD, Lambda)
+    S = np.linalg.cholesky(tune.P0)
+    x0_est_sp = [x0_est]
+    lam = 0.75**2 * (6 + 0) - 6
+    for i in range(6):
+        offset = np.sqrt(6 + lam) * S[:,i]
+        x0_est_sp.append(x0_est + offset)
+        x0_est_sp.append(x0_est - offset)
+
+    estimators = [hkf.HKF(x0i, tune.P0/2, tune.Q, tune.R) for x0i in x0_est_sp]
+    estimator = gmf.GMF(estimators, max_filter_count=8)
+
 
     estimated_target_obj = mt_obj.Sat(x0_est[:3], area=10, reflectivity=0.9)
 
     est_xhist = [x0_est]
     est_Phist = [tune.P0]
 
-    nees = []
     err = []
     for i in range(xhist_sat1.shape[1]-1):
         curr_state = xhist_sat1[:,i]
@@ -56,11 +55,10 @@ def run(args):
                 xhat, Pk = estimator.measurement(y, h, tune.R)
         else:
             h = mt_ni.gen_h_rel(next_state, theta, estimated_target_obj)
-            xhat, Pk = estimator.measurement(-np.ones(1), h, tune.R_ni)
+            xhat, Pk = estimator.measurement(-np.ones(1), h, tune.R_ni, True)
         
-        nees.append(estimator.NEES(target_rel_state))
-        err.append(estimator.x - target_rel_state)
-    return np.array(nees), np.array(err)
+        err.append(estimator.map_estimate()[0] - target_rel_state)
+    return np.array(err)
 
 if __name__ == "__main__":
     dt = 1
@@ -73,10 +71,7 @@ if __name__ == "__main__":
     seeds = list(range(k,k+N))
     # seeds[14] = 33
     args = [(seed, dt, duration) for seed in seeds]
-    results = process_map(run, args, max_workers=4)
-
-    nees_results = np.array([result[0] for result in results])
-    err_results = [result[1] for result in results]
+    err_results = process_map(run, args, max_workers=4)
 
     thresh = 1000
     dist_errs = np.array([np.linalg.norm(result[:,:3], axis=1) for result in err_results])
@@ -103,39 +98,4 @@ if __name__ == "__main__":
     ax.set_xlabel("Time")
     ax.set_title(f"Simulations Within Error Threshold")
 
-    alpha = 0.05
-    lb1 = scipy.stats.chi2.ppf(alpha/2,6)
-    ub1 = scipy.stats.chi2.ppf(1-alpha/2,6)
-
-    pltstyle.use(['fast'])
-    fig, axs = plt.subplots(1, 2, sharey=True, layout='constrained')
-    fig.set_constrained_layout_pads(wspace=0.1, hspace=0.1)
-
-    ax = axs[0]
-    ax.set_yscale('log')
-    ax.axhline(y=6, color='r', linestyle='--')
-    ax.axhline(y=lb1, color='b', linestyle='--')
-    ax.axhline(y=ub1, color='b', linestyle='--')
-    tspan = np.arange(nees_results.shape[1])
-    for row in range(nees_results.shape[0]):
-        ax.scatter(tspan, nees_results[row,:], label=f"Seed {row}", s=1)
-    ax.set_ylabel("NEES")
-    ax.set_xlabel("Time")
-    ax.set_title(f"N={N} NEES Simulations")
-
-    lbN = scipy.stats.chi2.ppf(alpha/2,6*N)/N
-    ubN = scipy.stats.chi2.ppf(1-alpha/2,6*N)/N
-
-    ax = axs[1]
-    ax.set_yscale('log')
-    ax.axhline(y=6, color='r', linestyle='--')
-    ax.axhline(y=lbN, color='b', linestyle='--')
-    ax.axhline(y=ubN, color='b', linestyle='--')
-    anees = np.mean(nees_results, axis=0)
-    ax.plot(tspan, anees)
-    ax.set_ylabel("MNEES")
-    ax.set_xlabel("Time")
-    ax.set_title("Mean NEES")
-
-    fig.legend(loc='outside center left')
     plt.show()

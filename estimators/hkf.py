@@ -1,6 +1,7 @@
 import numpy as np
 
 class HKF:
+    """Hybrid Extended-Unscented Kalman Filter"""
     def __init__(self, x0, P0, Q, R):
         # State
         self.x = x0
@@ -50,6 +51,20 @@ class HKF:
         self.P = self.P - (K @ innov_cov @ K.T)
 
         return self.x, self.P
+
+    def innov(self, h, R):
+        S = np.linalg.cholesky(self.P)
+        sp = [self.x]
+        for i in range(self.n):
+            offset = np.sqrt(self.n + self.l) * S[:,i]
+            sp.append(self.x + offset)
+            sp.append(self.x - offset)
+        spp = [h(p) for p in sp]
+        yhat = np.sum([wm * p for wm, p in zip(self.wm, spp)], axis=0)
+        innov_cov = R.copy()
+        for i in range(len(spp)):
+            innov_cov += self.wc[i] * (spp[i] - yhat)[:,None] @ (spp[i] - yhat)[None,:]
+        return yhat, innov_cov
 
     def NEES(self, x):
         ex = x - self.x
