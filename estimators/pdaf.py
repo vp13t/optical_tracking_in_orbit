@@ -40,12 +40,13 @@ class PDAF(hkf.HKF):
         return ys, validated_likelihoods
 
     def pda_ni(self, ys, h, R, y_null, h_null, R_null):
-        ys, likelihoods = self.pda(ys, h, R)
-        hs = [h] * len(ys)
-        Rs = [R] * len(ys)
+        if ys:
+            ys, likelihoods = self.pda(ys, h, R)
+            hs = [h] * len(ys)
+            Rs = [R] * len(ys)
 
         if not ys:
-            ys, likelihoods = self._pda([y_null], h_null, R_null)
+            ys, likelihoods = self.pda([y_null], h_null, R_null)
             hs = [h_null] * len(ys)
             Rs = [R_null] * len(ys)
 

@@ -18,19 +18,31 @@ class GMF:
             self.merge_filters(i, j)
 
     def prediction(self, dt, f, F):
-        self.executor.map(lambda Fi: Fi.prediction(dt, f, F), self.filters)
+        def pred_in_place(Fi):
+            Fi.prediction(dt, f, F)
+            return Fi
+        self.filters = list(self.executor.map(pred_in_place, self.filters))
         return [filter.x for filter in self.filters], [filter.P for filter in self.filters]
 
-    def measurement(self, ys, hs, Rs):
-        hypotheses = list(self.executor.map(lambda Fi: self.measurement_hypothesis_split(Fi, ys, hs, Rs), self.filters))
+    def measurement(self, ys, h, R, h_null, R_null):
+        def measurement_hypothesis_split(Fi):
+            filtered_ys, hs, Rs, likelihoods = Fi.pda_ni(ys, h, R, np.array([-1.0]), h_null, R_null)
+            hypotheses = []
+            for i in range(len(filtered_ys)):
+                hypothesis = copy.deepcopy(Fi)
+                hypothesis.measurement(filtered_ys[i], hs[i], Rs[i])
+                
+                hypotheses.append(hypothesis)
+            return hypotheses, likelihoods
+        split_hypotheses = list(self.executor.map(measurement_hypothesis_split, self.filters))
         filters = []
-        weights = []
-        for i in range(len(hypotheses)):
-            subhypotheses, subweights = hypotheses[i]
-            filters.extend(subhypotheses)
-            weights.extend(subweights * self.weights[i])
+        weights = np.array([])
+        for i in range(len(split_hypotheses)):
+            hypotheses, hweights = split_hypotheses[i]
+            filters.extend(hypotheses)
+            weights = np.hstack((weights, np.array(hweights) * self.weights[i]))
         self.filters = filters
-        self.weights = np.array(weights)
+        self.weights = weights
         
         while len(self.filters) > self.max_filter_count:
             i, j = self.runnalls_kld_argmin()
@@ -38,17 +50,6 @@ class GMF:
         
         self.weights /= self.weights
         return [filter.x for filter in self.filters], [filter.P for filter in self.filters]
-
-    def measurement_hypothesis_split(self, Fi, ys, hs, Rs):
-        ys, hs, Rs, weights = Fi.pda(ys)
-        hypotheses = []
-        for i in range(len(ys)):
-            hypothesis = copy.deepcopy(Fi)
-            hypothesis.measurement(ys[i], hs[i], Rs[i])
-            
-            hypotheses.append(hypothesis)
-            weights[i] *= likelihood
-        return hypotheses, weights
 
     def runnalls_kld_argmin(self):
         Dmin = float('Inf')
